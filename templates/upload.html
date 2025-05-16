@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}Загрузка данных - Система визуализации научных данных{% endblock %}
+
+{% block head %}
+<style>
+    .drag-area {
+        border: 2px dashed #0d6efd;
+        border-radius: 8px;
+        padding: 3rem;
+        text-align: center;
+        transition: border-color 0.3s;
+    }
+    
+    .drag-area.active {
+        border-color: #198754;
+        background-color: rgba(25, 135, 84, 0.1);
+    }
+    
+    .drag-area i {
+        font-size: 3rem;
+        color: #0d6efd;
+        margin-bottom: 1rem;
+    }
+    
+    .file-info {
+        display: none;
+        margin-top: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="fas fa-upload me-2"></i>Загрузка данных для визуализации</h4>
+            </div>
+            <div class="card-body p-4">
+                <p class="lead">
+                    Загрузите файл в формате CSV или JSON для анализа и создания визуализаций.
+                </p>
+                
+                <form method="post" enctype="multipart/form-data" id="upload-form">
+                    <div class="drag-area my-4" id="drag-area">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <h5>Перетащите файл сюда или</h5>
+                        <button type="button" class="btn btn-primary mt-3" id="browse-btn">Выбрать файл</button>
+                        <input type="file" name="file" id="file-input" hidden accept=".csv, .json">
+                    </div>
+                    
+                    <div class="file-info alert alert-info" id="file-info">
+                        <h5 class="mb-2">Информация о файле:</h5>
+                        <p><strong>Имя файла:</strong> <span id="file-name"></span></p>
+                        <p><strong>Тип файла:</strong> <span id="file-type"></span></p>
+                        <p><strong>Размер:</strong> <span id="file-size"></span></p>
+                    </div>
+                    
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-success btn-lg" id="upload-btn" disabled>
+                            <i class="fas fa-chart-line me-2"></i>Загрузить и визуализировать
+                        </button>
+                    </div>
+                </form>
+                
+                <hr class="my-4">
+                
+                <div class="accordion" id="faqAccordion">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="headingOne">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne">
+                                Какие форматы данных поддерживаются?
+                            </button>
+                        </h2>
+                        <div id="collapseOne" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                <p>Система поддерживает следующие форматы данных:</p>
+                                <ul>
+                                    <li><strong>CSV (Comma-Separated Values)</strong> - текстовый формат для представления табличных данных, где значения разделены запятыми</li>
+                                    <li><strong>JSON (JavaScript Object Notation)</strong> - текстовый формат для представления структурированных данных на основе синтаксиса объектов JavaScript</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="headingTwo">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo">
+                                Как должны быть структурированы данные?
+                            </button>
+                        </h2>
+                        <div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                <p>Для наилучших результатов ваши данные должны быть структурированы следующим образом:</p>
+                                <ul>
+                                    <li><strong>CSV формат:</strong> Первая строка должна содержать заголовки столбцов (названия переменных). Каждая последующая строка представляет отдельную запись/наблюдение.</li>
+                                    <li><strong>JSON формат:</strong> Данные должны быть представлены в виде массива объектов, где каждый объект представляет отдельную запись с набором пар ключ-значение.</li>
+                                </ul>
+                                <p>Система лучше всего работает с числовыми и категориальными данными.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="headingThree">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree">
+                                Что делать, если у меня нет данных для анализа?
+                            </button>
+                        </h2>
+                        <div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                <p>Если у вас нет собственных данных для анализа, вы можете воспользоваться разделом "Демо". В нём представлены примеры визуализаций с использованием тестовых данных об успеваемости студентов.</p>
+                                <p>Вы также можете скачать примеры данных по ссылкам ниже:</p>
+                                <ul>
+                                    <li><a href="{{ url_for('static', filename='sample_data/students.csv') }}">Пример данных об успеваемости студентов (CSV)</a></li>
+                                    <li><a href="{{ url_for('static', filename='sample_data/students.json') }}">Пример данных об успеваемости студентов (JSON)</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Получение элементов DOM
+    const dragArea = document.getElementById('drag-area');
+    const fileInput = document.getElementById('file-input');
+    const browseBtn = document.getElementById('browse-btn');
+    const uploadBtn = document.getElementById('upload-btn');
+    const fileInfo = document.getElementById('file-info');
+    const fileName = document.getElementById('file-name');
+    const fileType = document.getElementById('file-type');
+    const fileSize = document.getElementById('file-size');
+    
+    // Обработчик клика на кнопку "Выбрать файл"
+    browseBtn.addEventListener('click', () => {
+        fileInput.click();
+    });
+    
+    // Обработчик выбора файла
+    fileInput.addEventListener('change', function() {
+        showFileDetails(this.files[0]);
+    });
+    
+    // События перетаскивания файла
+    ['dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dragArea.addEventListener(eventName, preventDefault, false);
+    });
+    
+    function preventDefault(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    // Подсветка области при перетаскивании файла
+    dragArea.addEventListener('dragover', function() {
+        this.classList.add('active');
+    });
+    
+    dragArea.addEventListener('dragleave', function() {
+        this.classList.remove('active');
+    });
+    
+    // Обработка брошенного файла
+    dragArea.addEventListener('drop', function(e) {
+        this.classList.remove('active');
+        const file = e.dataTransfer.files[0];
+        fileInput.files = e.dataTransfer.files;
+        showFileDetails(file);
+    });
+    
+    // Функция отображения информации о файле
+    function showFileDetails(file) {
+        if (file) {
+            const validTypes = ['.csv', '.json', 'text/csv', 'application/json'];
+            const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+            
+            if (validTypes.includes(fileExtension) || validTypes.includes(file.type)) {
+                fileInfo.style.display = 'block';
+                fileName.textContent = file.name;
+                fileType.textContent = file.type || fileExtension;
+                fileSize.textContent = formatFileSize(file.size);
+                uploadBtn.disabled = false;
+            } else {
+                alert('Пожалуйста, выберите файл формата CSV или JSON');
+                fileInfo.style.display = 'none';
+                uploadBtn.disabled = true;
+            }
+        }
+    }
+    
+    // Функция форматирования размера файла
+    function formatFileSize(bytes) {
+        if (bytes < 1024) {
+            return bytes + ' байт';
+        } else if (bytes < 1048576) {
+            return (bytes / 1024).toFixed(2) + ' КБ';
+        } else {
+            return (bytes / 1048576).toFixed(2) + ' МБ';
+        }
+    }
+</script>
+{% endblock %}

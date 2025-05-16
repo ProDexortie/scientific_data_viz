@@ -1,0 +1,425 @@
+{% extends "base.html" %}
+
+{% block title %}Визуализация данных - Система визуализации научных данных{% endblock %}
+
+{% block head %}
+<style>
+    .viz-container {
+        min-height: 400px;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 1rem;
+        background-color: #fff;
+    }
+    
+    .data-summary {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    .control-panel {
+        border-left: 1px solid #e0e0e0;
+    }
+    
+    @media (max-width: 768px) {
+        .control-panel {
+            border-left: none;
+            border-top: 1px solid #e0e0e0;
+            padding-top: 1rem;
+            margin-top: 1rem;
+        }
+    }
+    
+    .viz-option-card {
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .viz-option-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+    
+    .viz-option-card.selected {
+        border: 2px solid #0d6efd;
+    }
+    
+    .viz-icon {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card shadow">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h4 class="mb-0"><i class="fas fa-chart-line me-2"></i>Визуализация данных</h4>
+        <a href="{{ url_for('upload') }}" class="btn btn-light btn-sm">
+            <i class="fas fa-upload me-1"></i>Загрузить другой файл
+        </a>
+    </div>
+    <div class="card-body p-0">
+        <div class="row g-0">
+            <!-- Левая панель с информацией о данных -->
+            <div class="col-md-3 p-3 bg-light">
+                <h5 class="mb-3">Информация о файле</h5>
+                <p><strong>Имя файла:</strong> {{ filename }}</p>
+                
+                {% if data_summary %}
+                <div class="accordion" id="dataSummaryAccordion">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="headingDataSummary">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDataSummary">
+                                Сводка данных
+                            </button>
+                        </h2>
+                        <div id="collapseDataSummary" class="accordion-collapse collapse" data-bs-parent="#dataSummaryAccordion">
+                            <div class="accordion-body data-summary">
+                                <p><strong>Количество строк:</strong> {{ data_summary.rows_count }}</p>
+                                <p><strong>Количество колонок:</strong> {{ data_summary.columns_count }}</p>
+                                
+                                <h6 class="mt-3">Колонки данных:</h6>
+                                <ul class="list-group">
+                                    {% for column in data_summary.columns %}
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        {{ column }}
+                                        <span class="badge bg-primary">{{ data_summary.column_types[column] }}</span>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                                
+                                {% if data_summary.numeric_stats %}
+                                <h6 class="mt-3">Статистика числовых данных:</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered">
+                                        <thead>
+                                            <tr>
+                                                <th>Колонка</th>
+                                                <th>Мин.</th>
+                                                <th>Макс.</th>
+                                                <th>Среднее</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for column, stats in data_summary.numeric_stats.items() %}
+                                            <tr>
+                                                <td>{{ column }}</td>
+                                                <td>{{ stats.min|round(2) }}</td>
+                                                <td>{{ stats.max|round(2) }}</td>
+                                                <td>{{ stats.mean|round(2) }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Основная секция с визуализацией и элементами управления -->
+            <div class="col-md-9 p-3">
+                <!-- Форма настроек визуализации -->
+                <form method="post" id="visualization-form">
+                    <div class="row">
+                        <!-- Выбор типа визуализации -->
+                        <div class="col-md-12 mb-4">
+                            <h5 class="mb-3">Выберите тип визуализации</h5>
+                            <div class="row row-cols-2 row-cols-md-4 g-3">
+                                <div class="col">
+                                    <div class="card h-100 viz-option-card {% if selected_viz == 'bar' %}selected{% endif %}" data-viz-type="bar">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-chart-bar viz-icon text-primary"></i>
+                                            <h6 class="card-title">Столбчатая</h6>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <div class="card h-100 viz-option-card {% if selected_viz == 'line' %}selected{% endif %}" data-viz-type="line">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-chart-line viz-icon text-success"></i>
+                                            <h6 class="card-title">Линейная</h6>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <div class="card h-100 viz-option-card {% if selected_viz == 'scatter' %}selected{% endif %}" data-viz-type="scatter">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-braille viz-icon text-info"></i>
+                                            <h6 class="card-title">Точечная</h6>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <div class="card h-100 viz-option-card {% if selected_viz == 'histogram' %}selected{% endif %}" data-viz-type="histogram">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-stream viz-icon text-warning"></i>
+                                            <h6 class="card-title">Гистограмма</h6>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <div class="card h-100 viz-option-card {% if selected_viz == 'box' %}selected{% endif %}" data-viz-type="box">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-box viz-icon text-danger"></i>
+                                            <h6 class="card-title">Ящик с усами</h6>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <div class="card h-100 viz-option-card {% if selected_viz == 'heatmap' %}selected{% endif %}" data-viz-type="heatmap">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-th viz-icon text-secondary"></i>
+                                            <h6 class="card-title">Тепловая карта</h6>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <div class="card h-100 viz-option-card {% if selected_viz == 'pie' %}selected{% endif %}" data-viz-type="pie">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-chart-pie viz-icon text-primary"></i>
+                                            <h6 class="card-title">Круговая</h6>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <div class="card h-100 viz-option-card {% if selected_viz == 'dashboard' %}selected{% endif %}" data-viz-type="dashboard">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-tachometer-alt viz-icon text-success"></i>
+                                            <h6 class="card-title">Дашборд</h6>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="hidden" name="viz_type" id="viz-type-input" value="{{ selected_viz or 'bar' }}">
+                        </div>
+                    </div>
+                    
+                    <!-- Настройка параметров визуализации -->
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <h5 class="mb-3">Настройте параметры</h5>
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="x-column" class="form-label">Ось X (категории)</label>
+                                    <select class="form-select" id="x-column" name="x_column">
+                                        <option value="">Выберите колонку</option>
+                                        {% for column in columns %}
+                                        <option value="{{ column }}" {% if selected_x == column %}selected{% endif %}>{{ column }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="y-column" class="form-label">Ось Y (значения)</label>
+                                    <select class="form-select" id="y-column" name="y_column">
+                                        <option value="">Выберите колонку</option>
+                                        {% for column in columns %}
+                                        <option value="{{ column }}" {% if selected_y == column %}selected{% endif %}>{{ column }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="color-column" class="form-label">Группировка по цвету (опционально)</label>
+                                    <select class="form-select" id="color-column" name="color_column">
+                                        <option value="">Без группировки</option>
+                                        {% for column in columns %}
+                                        <option value="{{ column }}" {% if selected_color == column %}selected{% endif %}>{{ column }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Кнопка создания визуализации -->
+                    <div class="d-grid gap-2 mb-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-eye me-2"></i>Создать визуализацию
+                        </button>
+                    </div>
+                </form>
+                
+                <!-- Контейнер для визуализации -->
+                <div class="viz-container shadow-sm" id="visualization-container">
+                    {% if graph_json %}
+                    <div id="plotly-graph"></div>
+                    {% else %}
+                    <div class="d-flex flex-column justify-content-center align-items-center h-100 text-muted">
+                        <i class="fas fa-chart-area fa-4x mb-3"></i>
+                        <h5>Выберите параметры и нажмите "Создать визуализацию"</h5>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Кнопки для экспорта -->
+                {% if graph_json %}
+                <div class="mt-3 text-end">
+                    <button class="btn btn-outline-primary btn-sm" id="download-png">
+                        <i class="fas fa-download me-1"></i>Скачать PNG
+                    </button>
+                    <button class="btn btn-outline-primary btn-sm" id="download-svg">
+                        <i class="fas fa-download me-1"></i>Скачать SVG
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Обработка выбора типа визуализации
+    const vizCards = document.querySelectorAll('.viz-option-card');
+    const vizTypeInput = document.getElementById('viz-type-input');
+    const xColumnSelect = document.getElementById('x-column');
+    const yColumnSelect = document.getElementById('y-column');
+    const colorColumnSelect = document.getElementById('color-column');
+    
+    // Настройка карточек выбора типа визуализации
+    vizCards.forEach(card => {
+        card.addEventListener('click', function() {
+            // Удаление выделения со всех карточек
+            vizCards.forEach(c => c.classList.remove('selected'));
+            
+            // Добавление выделения на выбранную карточку
+            this.classList.add('selected');
+            
+            // Установка значения скрытого поля
+            const vizType = this.getAttribute('data-viz-type');
+            vizTypeInput.value = vizType;
+            
+            // Настройка интерфейса в зависимости от типа визуализации
+            updateInterfaceForVizType(vizType);
+        });
+    });
+    
+    // Функция обновления интерфейса в зависимости от типа визуализации
+    function updateInterfaceForVizType(vizType) {
+        // Сброс обязательных полей
+        xColumnSelect.required = true;
+        yColumnSelect.required = true;
+        
+        // Настройка в зависимости от типа
+        if (vizType === 'histogram' || vizType === 'pie') {
+            // Для гистограммы и круговой диаграммы нужна только одна ось
+            yColumnSelect.required = false;
+            yColumnSelect.parentElement.style.display = 'none';
+            
+            // Обновление подписей
+            if (vizType === 'histogram') {
+                xColumnSelect.previousElementSibling.textContent = 'Данные для гистограммы';
+            } else if (vizType === 'pie') {
+                xColumnSelect.previousElementSibling.textContent = 'Категории';
+            }
+        } else if (vizType === 'heatmap') {
+            // Для тепловой карты нужны все три оси
+            xColumnSelect.previousElementSibling.textContent = 'Строки (ось Y)';
+            yColumnSelect.previousElementSibling.textContent = 'Столбцы (ось X)';
+            colorColumnSelect.previousElementSibling.textContent = 'Значения';
+            
+            yColumnSelect.parentElement.style.display = 'block';
+            colorColumnSelect.required = true;
+        } else if (vizType === 'dashboard') {
+            // Для дашборда не нужно выбирать колонки
+            xColumnSelect.required = false;
+            yColumnSelect.required = false;
+            
+            xColumnSelect.parentElement.style.display = 'none';
+            yColumnSelect.parentElement.style.display = 'none';
+            colorColumnSelect.parentElement.style.display = 'none';
+        } else {
+            // Для остальных типов графиков стандартные настройки
+            xColumnSelect.previousElementSibling.textContent = 'Ось X (категории)';
+            yColumnSelect.previousElementSibling.textContent = 'Ось Y (значения)';
+            colorColumnSelect.previousElementSibling.textContent = 'Группировка по цвету (опционально)';
+            
+            yColumnSelect.parentElement.style.display = 'block';
+            colorColumnSelect.required = false;
+        }
+    }
+    
+    // Функция для безопасного отображения графика
+    function safelyRenderPlot(divId, graphData, options) {
+        try {
+            let data, layout;
+            
+            // Пытаемся получить данные графика в зависимости от типа переданных данных
+            if (typeof graphData === 'string') {
+                try {
+                    const parsedData = JSON.parse(graphData);
+                    data = parsedData.data;
+                    layout = parsedData.layout;
+                } catch (e) {
+                    console.error(`Ошибка при парсинге JSON:`, e);
+                    data = [];
+                    layout = { title: 'Ошибка загрузки данных' };
+                }
+            } else if (typeof graphData === 'object' && graphData !== null) {
+                data = graphData.data || [];
+                layout = graphData.layout || {};
+            } else {
+                console.error(`Неподдерживаемый тип данных:`, typeof graphData);
+                data = [];
+                layout = { title: 'Неподдерживаемый формат данных' };
+            }
+            
+            // Рендерим график
+            Plotly.newPlot(divId, data, layout, options);
+            return true;
+        } catch (e) {
+            console.error(`Ошибка при рендеринге графика:`, e);
+            document.getElementById(divId).innerHTML = 
+                `<div class="alert alert-danger">Ошибка при создании визуализации: ${e.message}</div>`;
+            return false;
+        }
+    }
+    
+    // Инициализация
+    document.addEventListener('DOMContentLoaded', function() {
+        // При загрузке страницы настроить интерфейс в соответствии с выбранным типом визуализации
+        const currentVizType = vizTypeInput.value;
+        if (currentVizType) {
+            updateInterfaceForVizType(currentVizType);
+        }
+        
+        {% if graph_json %}
+        // Если есть данные для графика, отобразить их
+        const plotlyOptions = {
+            responsive: true,
+            displayModeBar: true,
+            modeBarButtonsToRemove: ['sendDataToCloud'],
+            displaylogo: false
+        };
+        
+        const success = safelyRenderPlot('plotly-graph', {{ graph_json | safe }}, plotlyOptions);
+        
+        // Настройка кнопок экспорта только если график успешно отрендерен
+        if (success) {
+            document.getElementById('download-png')?.addEventListener('click', function() {
+                Plotly.downloadImage('plotly-graph', {
+                    format: 'png',
+                    filename: 'visualization',
+                    height: 800,
+                    width: 1200
+                });
+            });
+            
+            document.getElementById('download-svg')?.addEventListener('click', function() {
+                Plotly.downloadImage('plotly-graph', {
+                    format: 'svg',
+                    filename: 'visualization',
+                    height: 800,
+                    width: 1200
+                });
+            });
+        }
+        {% endif %}
+    });
+</script>
+{% endblock %}

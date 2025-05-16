@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}Демонстрация - Система визуализации научных данных{% endblock %}
+
+{% block content %}
+<div class="card shadow">
+    <div class="card-header bg-primary text-white">
+        <h4 class="mb-0"><i class="fas fa-flask me-2"></i>Демонстрация визуализаций</h4>
+    </div>
+    <div class="card-body p-4">
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            Ниже представлены примеры различных типов визуализаций на основе тестовых данных об успеваемости студентов.
+            Вы можете взаимодействовать с графиками (увеличивать, перемещать, получать подробную информацию при наведении).
+        </div>
+        
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">Средние оценки по предметам</h5>
+                        <small class="text-muted">Столбчатая диаграмма</small>
+                    </div>
+                    <div class="card-body">
+                        <div id="bar-chart" style="height: 400px;"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">Средняя посещаемость по предметам</h5>
+                        <small class="text-muted">Линейный график</small>
+                    </div>
+                    <div class="card-body">
+                        <div id="line-chart" style="height: 400px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">Связь между оценками и посещаемостью</h5>
+                        <small class="text-muted">Диаграмма рассеяния</small>
+                    </div>
+                    <div class="card-body">
+                        <div id="scatter-chart" style="height: 400px;"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">Распределение оценок</h5>
+                        <small class="text-muted">Гистограмма</small>
+                    </div>
+                    <div class="card-body">
+                        <div id="histogram-chart" style="height: 400px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">Распределение оценок по предметам</h5>
+                        <small class="text-muted">Диаграмма Box Plot</small>
+                    </div>
+                    <div class="card-body">
+                        <div id="box-chart" style="height: 400px;"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">Средние оценки по предметам и курсам</h5>
+                        <small class="text-muted">Тепловая карта</small>
+                    </div>
+                    <div class="card-body">
+                        <div id="heatmap-chart" style="height: 400px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center mt-4">
+            <a href="{{ url_for('upload') }}" class="btn btn-primary">
+                <i class="fas fa-upload me-2"></i>Загрузить свои данные
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Общие настройки для всех графиков
+        const plotlyOptions = {
+            responsive: true,
+            displayModeBar: true,
+            modeBarButtonsToRemove: ['sendDataToCloud'],
+            displaylogo: false
+        };
+        
+        // Безопасная функция рендеринга графиков
+        function safeRender(elementId, graphData) {
+            try {
+                const element = document.getElementById(elementId);
+                if (!element) {
+                    console.error(`Элемент с ID ${elementId} не найден`);
+                    return;
+                }
+                
+                let plotData, plotLayout;
+                
+                // Определение типа входных данных
+                if (typeof graphData === 'string') {
+                    try {
+                        const parsed = JSON.parse(graphData);
+                        plotData = parsed.data || [];
+                        plotLayout = parsed.layout || {};
+                    } catch (err) {
+                        console.error(`Ошибка парсинга JSON для ${elementId}:`, err);
+                        element.innerHTML = `<div class="alert alert-danger">Ошибка парсинга данных: ${err.message}</div>`;
+                        return;
+                    }
+                } else if (graphData && typeof graphData === 'object') {
+                    // Уже объект, не нужно парсить
+                    plotData = graphData.data || [];
+                    plotLayout = graphData.layout || {};
+                } else {
+                    console.error(`Неверный формат данных для ${elementId}`);
+                    element.innerHTML = '<div class="alert alert-danger">Неверный формат данных графика</div>';
+                    return;
+                }
+                
+                // Рендеринг графика
+                Plotly.newPlot(elementId, plotData, plotLayout, plotlyOptions);
+            } catch (error) {
+                console.error(`Ошибка рендеринга ${elementId}:`, error);
+                const element = document.getElementById(elementId);
+                if (element) {
+                    element.innerHTML = `<div class="alert alert-danger">Ошибка создания графика: ${error.message}</div>`;
+                }
+            }
+        }
+        
+        // Отрисовка графиков
+        {% if graphs.bar %}
+        safeRender('bar-chart', {{ graphs.bar | safe }});
+        {% endif %}
+        
+        {% if graphs.line %}
+        safeRender('line-chart', {{ graphs.line | safe }});
+        {% endif %}
+        
+        {% if graphs.scatter %}
+        safeRender('scatter-chart', {{ graphs.scatter | safe }});
+        {% endif %}
+        
+        {% if graphs.histogram %}
+        safeRender('histogram-chart', {{ graphs.histogram | safe }});
+        {% endif %}
+        
+        {% if graphs.box %}
+        safeRender('box-chart', {{ graphs.box | safe }});
+        {% endif %}
+        
+        {% if graphs.heatmap %}
+        safeRender('heatmap-chart', {{ graphs.heatmap | safe }});
+        {% endif %}
+    });
+</script>
+{% endblock %}
